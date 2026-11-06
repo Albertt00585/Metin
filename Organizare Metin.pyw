@@ -1,6 +1,6 @@
 """Aplicatie desktop: adaugi un nume, apoi scrii pe pagina acelui nume.
 
-Porneste cu dublu-click pe Metin.pyw (sau: python Metin.pyw).
+Porneste cu dublu-click pe "Organizare Metin.pyw" (sau: python "Organizare Metin.pyw").
 Necesita: pip install customtkinter
 Textele se salveaza automat in %APPDATA%\\Metin\\note.json.
 Installer + update-uri: vezi build.ps1 si README.md.
@@ -16,11 +16,13 @@ import urllib.request
 
 import customtkinter as ctk
 
-APP_VERSION = "1.0.0"
+APP_NAME = "Organizare Metin"
+APP_VERSION = "1.0.1"
 # Repository-ul GitHub de unde aplicatia instalata isi ia update-urile ("utilizator/repo").
 UPDATE_REPO = "Albertt00585/Metin"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# folderul de date ramane "Metin" si dupa redenumire, ca notitele existente sa fie gasite
 DATA_DIR = os.path.join(os.environ.get("APPDATA") or BASE_DIR, "Metin")
 DATA_PATH = os.path.join(DATA_DIR, "note.json")
 UPDATE_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or BASE_DIR, "Metin", "updates")
@@ -49,7 +51,7 @@ RADIUS = 14
 
 def load_data():
     os.makedirs(DATA_DIR, exist_ok=True)
-    old_path = os.path.join(BASE_DIR, "note.json")  # locatia veche, langa Metin.pyw
+    old_path = os.path.join(BASE_DIR, "note.json")  # locatia veche, langa fisierul .pyw
     if not os.path.exists(DATA_PATH) and os.path.exists(old_path):
         shutil.copy2(old_path, DATA_PATH)
     try:
@@ -91,7 +93,7 @@ def fetch_latest_release():
 def download_update(version, url, size):
     """Descarca installer-ul in UPDATE_DIR; intoarce calea doar daca fisierul e complet."""
     os.makedirs(UPDATE_DIR, exist_ok=True)
-    path = os.path.join(UPDATE_DIR, f"MetinSetup-{version}.exe")
+    path = os.path.join(UPDATE_DIR, f"OrganizareMetinSetup-{version}.exe")
     if os.path.exists(path) and os.path.getsize(path) == size:
         return path  # descarcat deja la o pornire anterioara
     for name in os.listdir(UPDATE_DIR):  # curatam versiunile/descarcarile vechi
@@ -148,7 +150,7 @@ class ConfirmDialog(ctk.CTkToplevel):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__(fg_color=BG)
-        self.title("Metin")
+        self.title(APP_NAME)
         self.geometry("760x560")
         self.minsize(460, 400)
         if os.path.exists(ICON_PATH):
@@ -210,7 +212,7 @@ class App(ctk.CTk):
     # ---------- ecranul cu nume ----------
     def show_names(self):
         self.current = None
-        self.title("Metin")
+        self.title(APP_NAME)
         outer = ctk.CTkFrame(self, fg_color=BG, corner_radius=0)
         card = ctk.CTkFrame(outer, fg_color=CARD, corner_radius=RADIUS + 4, border_width=1, border_color=BORDER)
         card.place(relx=0.5, rely=0.5, anchor="center")
@@ -289,7 +291,7 @@ class App(ctk.CTk):
     # ---------- pagina de scris ----------
     def show_editor(self, name):
         self.current = name
-        self.title(f"Metin · {name}")
+        self.title(f"{APP_NAME} · {name}")
         outer = ctk.CTkFrame(self, fg_color=BG, corner_radius=0)
         pad = ctk.CTkFrame(outer, fg_color="transparent")
         pad.pack(fill="both", expand=True, padx=20, pady=16)
