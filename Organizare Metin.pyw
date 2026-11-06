@@ -17,7 +17,7 @@ import urllib.request
 import customtkinter as ctk
 
 APP_NAME = "Organizare Metin"
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.0"
 # Repository-ul GitHub de unde aplicatia instalata isi ia update-urile ("utilizator/repo").
 UPDATE_REPO = "Albertt00585/Metin"
 

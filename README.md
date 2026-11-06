@@ -20,11 +20,11 @@ Rezultă `dist\OrganizareMetinSetup.exe`. Îl rulezi pe orice calculator cu Wind
 ## Cum publici un update
 
 1. Faci modificările în `Organizare Metin.pyw`.
-2. Mărești `APP_VERSION` (de ex. `1.0.1` → `1.0.2`).
+2. Mărești `APP_VERSION` (de ex. `1.0.0` → `1.0.1`).
 3. Rulezi `build.ps1`.
 4. Publici installer-ul pe GitHub:
    ```
-   gh release create v1.0.2 dist\OrganizareMetinSetup.exe --title "Organizare Metin 1.0.2" --notes "Ce s-a schimbat"
+   gh release create v1.0.1 dist\OrganizareMetinSetup.exe --title "Organizare Metin 1.0.1" --notes "Ce s-a schimbat"
    ```
 
 La pornire, aplicația instalată pe orice dispozitiv descarcă în fundal versiunea nouă și afișează discret
