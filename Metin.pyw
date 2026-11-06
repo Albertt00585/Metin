@@ -11,7 +11,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import threading
 import urllib.request
 
@@ -24,6 +23,7 @@ UPDATE_REPO = "Albertt00585/Metin"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(os.environ.get("APPDATA") or BASE_DIR, "Metin")
 DATA_PATH = os.path.join(DATA_DIR, "note.json")
+UPDATE_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or BASE_DIR, "Metin", "updates")
 FROZEN = getattr(sys, "frozen", False)  # True cand ruleaza ca aplicatie instalata (.exe)
 ICON_PATH = os.path.join(getattr(sys, "_MEIPASS", BASE_DIR), "assets", "metin.ico")
 
@@ -60,9 +60,12 @@ def load_data():
 
 
 def save_data(data):
+    # scriere atomica: fisierul vechi e inlocuit doar dupa ce cel nou e scris complet pe disc
     tmp = DATA_PATH + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
     os.replace(tmp, DATA_PATH)
 
 
@@ -71,7 +74,7 @@ def parse_version(text):
 
 
 def fetch_latest_release():
-    """Intoarce (versiune, url_installer) daca pe GitHub exista o versiune mai noua, altfel None."""
+    """Intoarce (versiune, url_installer, marime) daca pe GitHub exista o versiune mai noua, altfel None."""
     url = f"https://api.github.com/repos/{UPDATE_REPO}/releases/latest"
     req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "Metin"})
     with urllib.request.urlopen(req, timeout=10) as resp:
@@ -81,8 +84,29 @@ def fetch_latest_release():
         return None
     for asset in release.get("assets", []):
         if asset["name"].lower().endswith(".exe"):
-            return version.lstrip("v"), asset["browser_download_url"]
+            return version.lstrip("v"), asset["browser_download_url"], asset["size"]
     return None
+
+
+def download_update(version, url, size):
+    """Descarca installer-ul in UPDATE_DIR; intoarce calea doar daca fisierul e complet."""
+    os.makedirs(UPDATE_DIR, exist_ok=True)
+    path = os.path.join(UPDATE_DIR, f"MetinSetup-{version}.exe")
+    if os.path.exists(path) and os.path.getsize(path) == size:
+        return path  # descarcat deja la o pornire anterioara
+    for name in os.listdir(UPDATE_DIR):  # curatam versiunile/descarcarile vechi
+        os.remove(os.path.join(UPDATE_DIR, name))
+    urllib.request.urlretrieve(url, path + ".part")
+    if os.path.getsize(path + ".part") != size:
+        os.remove(path + ".part")
+        return None
+    os.replace(path + ".part", path)
+    return path
+
+
+def backup_data():
+    if os.path.exists(DATA_PATH):
+        shutil.copy2(DATA_PATH, os.path.join(DATA_DIR, "note.backup.json"))
 
 
 def font(size, bold=False):
@@ -134,53 +158,48 @@ class App(ctk.CTk):
         self.current = None
         self.frame = None
         self.save_job = None
+        self.pending_update = None
+        self.update_result = None
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.show_names()
         if FROZEN and UPDATE_REPO:
             threading.Thread(target=self.check_for_update, daemon=True).start()
+            self.poll_update()
 
     # ---------- update-uri ----------
+    # Versiunea noua se descarca in fundal; se instaleaza abia cand inchizi aplicatia,
+    # dupa ce tot textul a fost salvat. Nu se reporneste nimic si nu apare nicio fereastra.
     def check_for_update(self):
+        # ruleaza pe alt thread: nu atinge fereastra, doar lasa rezultatul pentru poll_update
         try:
             found = fetch_latest_release()
+            path = download_update(*found) if found else None
         except Exception:
             return  # fara internet / GitHub indisponibil -> incercam la urmatoarea pornire
-        if found:
-            self.after(0, self.show_update_banner, *found)
+        if path:
+            self.update_result = (found[0], path)
 
-    def show_update_banner(self, version, url):
-        bar = ctk.CTkFrame(self, fg_color=ROW, corner_radius=12, border_width=1, border_color=ACCENT)
-        bar.pack(side="top", fill="x", padx=20, pady=(14, 0), before=self.frame)
-        label = ctk.CTkLabel(bar, text=f"Versiune nouă disponibilă: {version}", font=font(13), text_color=TEXT)
-        label.pack(side="left", padx=14, pady=8)
-        later = ctk.CTkButton(bar, text="Mai târziu", width=90, height=32, corner_radius=10, font=font(12),
-                              fg_color="transparent", hover_color=ROW_HOVER, text_color=MUTED, command=bar.destroy)
-        later.pack(side="right", padx=(0, 8), pady=8)
-        button = ctk.CTkButton(bar, text="Actualizează", width=110, height=32, corner_radius=10, font=font(12, True),
-                               fg_color=ACCENT, hover_color=ACCENT_HOVER, text_color="#ffffff")
-        button.pack(side="right", padx=8, pady=8)
+    def poll_update(self):
+        if self.update_result:
+            self.update_ready(*self.update_result)
+        else:
+            self.after(1000, self.poll_update)
 
-        def start():
-            button.configure(state="disabled", text="Se descarcă…")
-            later.pack_forget()
-            threading.Thread(target=download, daemon=True).start()
+    def update_ready(self, version, path):
+        self.pending_update = path
+        note = ctk.CTkLabel(self, text=f"Versiunea {version} e pregătită · se instalează când închizi aplicația",
+                            font=font(11), text_color=MUTED, height=22)
+        note.pack(side="bottom", anchor="e", padx=22, pady=(0, 6), before=self.frame)
 
-        def download():
-            try:
-                path = os.path.join(tempfile.mkdtemp(), "MetinSetup.exe")
-                urllib.request.urlretrieve(url, path)
-            except Exception:
-                self.after(0, lambda: (label.configure(text="Descărcarea a eșuat. Încearcă din nou mai târziu."),
-                                       button.configure(state="normal", text="Reîncearcă")))
-                return
-            self.after(0, install, path)
-
-        def install(path):
-            # Installer-ul inchide aplicatia, o actualizeaza si o porneste din nou.
-            subprocess.Popen([path, "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART"])
-            self.on_close()
-
-        button.configure(command=start)
+    def install_pending_update(self):
+        if not self.pending_update or not os.path.exists(self.pending_update):
+            return
+        backup_data()
+        try:
+            subprocess.Popen([self.pending_update, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART",
+                              "/norelaunch=1"])
+        except OSError:
+            pass  # incercam din nou la urmatoarea inchidere
 
     def swap(self, frame):
         if self.frame:
@@ -347,8 +366,10 @@ class App(ctk.CTk):
         self.show_names()
 
     def on_close(self):
+        # ordinea conteaza: intai salvam tot textul, abia apoi pornim update-ul
         if self.current is not None:
             self.save_now()
+        self.install_pending_update()
         self.destroy()
 
 

@@ -43,5 +43,12 @@ Name: "{autodesktop}\Metin"; Filename: "{app}\Metin.exe"; Tasks: desktopicon
 [Run]
 ; instalare normala: bifa "Porneste Metin" la final
 Filename: "{app}\Metin.exe"; Description: "Pornește Metin"; Flags: nowait postinstall skipifsilent
-; update automat (silentios): reporneste aplicatia singur
-Filename: "{app}\Metin.exe"; Flags: nowait; Check: WizardSilent
+; update silentios din versiunea 1.0.0 (butonul "Actualizează"): reporneste aplicatia.
+; Versiunile noi instaleaza update-ul la inchidere cu /norelaunch=1, deci nu repornesc nimic.
+Filename: "{app}\Metin.exe"; Flags: nowait; Check: ShouldRelaunch
+
+[Code]
+function ShouldRelaunch: Boolean;
+begin
+  Result := WizardSilent and (ExpandConstant('{param:norelaunch|0}') <> '1');
+end;

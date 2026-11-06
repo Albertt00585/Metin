@@ -27,5 +27,10 @@ Rezultă `dist\MetinSetup.exe`. Îl rulezi pe orice calculator cu Windows; nu ce
    gh release create v1.0.1 dist\MetinSetup.exe --title "Metin 1.0.1" --notes "Ce s-a schimbat"
    ```
 
-La următoarea pornire, aplicația instalată pe orice dispozitiv vede versiunea nouă, afișează
-„Versiune nouă disponibilă” și, la click pe **Actualizează**, se actualizează și repornește singură.
+La pornire, aplicația instalată pe orice dispozitiv descarcă în fundal versiunea nouă și afișează discret
+jos „Versiunea X e pregătită · se instalează când închizi aplicația”. La închidere salvează tot textul,
+face o copie de siguranță (`%APPDATA%\Metin\note.backup.json`) și abia apoi instalează update-ul,
+fără nicio fereastră. Data viitoare când o deschizi, rulează versiunea nouă.
+
+Aplicațiile care au încă versiunea 1.0.0 afișează în schimb bara „Versiune nouă disponibilă” cu butonul
+**Actualizează** (o singură dată, pentru a trece la sistemul nou).
